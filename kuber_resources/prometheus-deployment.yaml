@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+  labels:
+    app: prometheus
+  name: prometheus
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: prometheus
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: prometheus
+    spec:
+      initContainers:
+        - name: prometheus-data-permission-fix
+          image: busybox
+          command: [ "/bin/chmod","-R","777", "/prometheus" ]
+          volumeMounts:
+            - name: prom-data
+              mountPath: /prometheus
+      containers:
+        - args:
+            - --config.file=/etc/prometheus/prometheus.yml
+          image: prom/prometheus
+          name: prometheus
+          ports:
+            - containerPort: 9090
+              protocol: TCP
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "1Gi"
+              cpu: "500m"
+          volumeMounts:
+            - mountPath: /etc/prometheus
+              name: prometheus-cm0
+            - mountPath: /prometheus
+              name: prom-data
+      restartPolicy: Always
+      volumes:
+        - configMap:
+            name: prometheus-cm0
+          name: prometheus-cm0
+        - name: prom-data
+          persistentVolumeClaim:
+            claimName: prom-data
